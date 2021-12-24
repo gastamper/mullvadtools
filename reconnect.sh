@@ -5,7 +5,7 @@ usedlist=$HOME/mullvad.used
 relaylist=$(mullvad relay list | grep wireguard | cut -f1 -d ' ' | tr -d '\t')
 
 if [[ -z $usedlist ]]; then
-	used=$(cat $HOME/mullvad.used)
+	used=$(cat $usedlist)
 else
 	used=""
 fi
