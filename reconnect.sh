@@ -8,10 +8,13 @@ cmd='echo "$relays" | grep wireguard | cut -f1 -d " " | tr -d "\t"'
 # countries=$(mullvad relay list | sed '/^\t/d' | sed '/^$/d' | cut -f2 -d '(' | cut -f1 -d')' | tr '\n' '|')
 exclude="al|au|at|be|br|bg|cz|dk|ee|fi|fr|de|gr|hk|hu|ie|il|it|jp|lv|lu|md|nl|nz|mk|no|pl|pt|ro|rs|sg|es|se|ch|ae"
 
-if [[ ! -x "/usr/bin/mullvad" ]]; then
-	echo "/usr/bin/mullvad doesn't exist or isn't executable"
-	exit 1
-fi
+# Check if mullvad binary in expected location and executable
+check_executable() {
+	if [[ ! -x "/usr/bin/mullvad" ]]; then
+		echo "/usr/bin/mullvad doesn't exist or isn't executable"
+		exit 1
+	fi
+}
 
 # Ensure 'mullvad relay list' command & argument works as expected
 check_relay() {
@@ -25,40 +28,50 @@ check_relay() {
 	fi
 }
 
-check_relay
 
-case $1 in
-	"--help")
-		echo "'$0 random' to randomize relay list"
-		exit 0
-		;;
-	"random")
-		relaylist=$(eval $cmd | shuf)
-		;;
-	*)
-		relaylist=$(eval $cmd)
-		;;
-esac
+# Parse command-line arguments
+parse_args() {
+	case $1 in
+		"--help")
+			echo "'$0 random' to randomize relay list"
+			exit 0
+			;;
+		"random")
+			relaylist=$(eval $cmd | shuf)
+			;;
+		*)
+			relaylist=$(eval $cmd)
+			;;
+	esac
+}
 
-# Create list of already used relays if it doesn't exist
-if [[ ! -f $usedlist ]]; then
-	touch $usedlist
-fi
+main() {
+	check_executable
+	check_relay
+	parse_args $1
 
-# Loop through relays, exclude any which don't match, connect to first valid
-for item in $relaylist; do
-	if [[ $(cat $usedlist) =~ (^|[[:space:]])$item($|[[:space:]]) ]] ; then	
-		echo "Already used $item"
-	elif [[ $(echo $exclude | grep ${item::2}) ]] ; then
-		echo "Excluded $item based on country"
-		continue
-	else
-		echo "$item free"
-		echo $item >> $usedlist
-		mullvad relay set hostname $item && exit 0
-		echo "Setting relay failed, exiting"
-		exit 1
+	# Create list of already used relays if it doesn't exist
+	if [[ ! -f $usedlist ]]; then
+		touch $usedlist
 	fi
-done
-echo "All endpoints already used, exiting"
-exit 1
+
+	# Loop through relays, exclude any which don't match, connect to first valid
+	for item in $relaylist; do
+		if [[ $(cat $usedlist) =~ (^|[[:space:]])$item($|[[:space:]]) ]] ; then	
+			echo "Already used $item"
+		elif [[ $(echo $exclude | grep ${item::2}) ]] ; then
+			echo "Excluded $item based on country"
+			continue
+		else
+			echo "$item free"
+			echo $item >> $usedlist
+			mullvad relay set hostname $item && exit 0
+			echo "Setting relay failed, exiting"
+			exit 1
+		fi
+	done
+	echo "All endpoints already used, exiting"
+	exit 1
+}
+
+main $1
