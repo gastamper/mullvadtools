@@ -18,16 +18,13 @@ check_executable() {
 
 # Ensure 'mullvad relay list' command & argument works as expected
 check_relay() {
-	# Make $relays global
-	declare -gx relays=$(mullvad relay list)
+	relays=$(mullvad relay list)
 	retval=$?
-
 	if [[ $retval -ne 0 ]]; then
 		echo "Got error $retval running 'mullvad relay list'"
 		exit $retval
 	fi
 }
-
 
 # Parse command-line arguments
 parse_args() {
@@ -49,17 +46,15 @@ main() {
 	check_executable
 	check_relay
 	parse_args $1
-
+	
 	# Create list of already used relays if it doesn't exist
-	if [[ ! -f $usedlist ]]; then
-		touch $usedlist
-	fi
+	[[ ! -f $usedlist ]] &&	touch $usedlist
 
 	# Loop through relays, exclude any which don't match, connect to first valid
 	for item in $relaylist; do
-		if [[ $(cat $usedlist) =~ (^|[[:space:]])$item($|[[:space:]]) ]] ; then	
+		if [[ $(cat $usedlist) =~ (^|[[:space:]])$item($|[[:space:]]) ]]; then	
 			echo "Already used $item"
-		elif [[ $(echo $exclude | grep ${item::2}) ]] ; then
+		elif [[ $(echo $exclude | grep ${item::2}) ]]; then
 			echo "Excluded $item based on country"
 			continue
 		else
