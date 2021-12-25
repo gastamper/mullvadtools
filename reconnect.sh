@@ -19,7 +19,7 @@ check_relay() {
 	declare -gx relays=$(mullvad relay list)
 	retval=$?
 
-	if [[ $? -ne 0 ]]; then
+	if [[ $retval -ne 0 ]]; then
 		echo "Got error $retval running 'mullvad relay list'"
 		exit $retval
 	fi
