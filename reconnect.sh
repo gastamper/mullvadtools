@@ -4,8 +4,6 @@
 
 usedlist=$HOME/mullvad.used
 cmd='echo "$relays" | grep wireguard | cut -f1 -d " " | tr -d "\t"'
-# Get list of countries by 2-character identifier
-# countries=$(mullvad relay list | sed '/^\t/d' | sed '/^$/d' | cut -f2 -d '(' | cut -f1 -d')' | tr '\n' '|')
 exclude="al|au|at|be|br|bg|cz|dk|ee|fi|fr|de|gr|hk|hu|ie|il|it|jp|lv|lu|md|nl|nz|mk|no|pl|pt|ro|rs|sg|es|se|ch|ae"
 
 # Check if mullvad binary in expected location and executable
@@ -31,10 +29,16 @@ parse_args() {
 	case $1 in
 		"--help")
 			echo "'$0 random' to randomize relay list"
+			echo "'$0 countries' to get a list of countries"
 			exit 0
 			;;
 		"random")
 			relaylist=$(eval $cmd | shuf)
+			;;
+		"countries")
+			mullvad relay list | sed '/^\t/d' | sed '/^$/d' | cut -f2 -d '(' | cut -f1 -d')' | tr '\n' '|'
+			echo -e \r\n
+			exit 0
 			;;
 		*)
 			relaylist=$(eval $cmd)
