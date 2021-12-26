@@ -43,9 +43,9 @@ check_args() {
 				echo "Invalid option: -$OPTARG" >&2
 				exit 1;;
 			r) # Do not randomize relay list
-				export -n random=1;;
-			x) # Do not exclude previously used relays
-				exclude=1;;
+				export -n norandom=1;;
+			n) # Do not exclude previously used relays
+				export -n noexclude=1;;
 			c) # List countries with available relays, then exit
 				mullvad relay list | sed '/^\t/d' | sed '/^$/d' | cut -f2 -d '(' | cut -f1 -d')' | tr '\n' '|'
 				echo -e \r\n
@@ -67,7 +67,7 @@ main() {
 	check_relay
 
 	# Randomize relay list if -r flag not passed
-	[[ $random -ne 1 ]] && 
+	[[ $norandom -ne 1 ]] && 
 		relaylist=$(eval $cmd | shuf) ||
 		relaylist=$(eval $cmd);
 
@@ -78,7 +78,7 @@ main() {
 	for item in $relaylist; do
 		if [[ $(cat $usedlist) =~ (^|[[:space:]])$item($|[[:space:]]) ]]; then	
 			echo "Already used $item"
-		elif [[ ( $excluded -ne 1 ) && 
+		elif [[ ( $noexclude -ne 1 ) && 
 			( $(echo $exclude | grep ${item::2}) ) ]]; then
 			echo "Excluded $item based on country"
 			continue
