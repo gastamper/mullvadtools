@@ -10,7 +10,7 @@ exclude="al|au|at|be|br|bg|cz|dk|ee|fi|fr|de|gr|hk|hu|ie|il|it|jp|lv|lu|md|nl|nz
 usage() { 
 	# Auto-generate documentation based on comments
 	echo "$0 usage:" && { grep ".) \#" $0 | 
-	tr -d "\t" | cut -f2 -d"|"; }; 
+	tr -d "\t" | cut -f2 -d"|" | sed 's/^/\t/g'; }; 
 	exit 0;
 }
 
