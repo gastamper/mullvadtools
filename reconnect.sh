@@ -36,9 +36,9 @@ check_relay() {
 # Parse command line arguments
 check_args() {
 	local OPTIND
-	while getopts ":rxhc" flag
+	while getopts "rnhcx:" item
 	do
-		case $flag in
+		case $item in
 			\?)
 				echo "Invalid option: -$OPTARG" >&2
 				exit 1;;
@@ -49,6 +49,22 @@ check_args() {
 			c) # List countries with available relays, then exit
 				mullvad relay list | sed '/^\t/d' | sed '/^$/d' | cut -f2 -d '(' | cut -f1 -d')' | tr '\n' '|'
 				echo -e \r\n
+				exit 0
+				;;
+			x) # Exclude a specific country by 2-character code (-x au, etc)
+				[[ ${#OPTARG} -ne 2 ]] && { echo "Country tag must be exactly two characters."; exit 1; }
+				countrylist=$(mullvad relay list | sed '/^\t/d' | sed '/^$/d' | cut -f2 -d '(' | cut -f1 -d')')
+				[[ ! $(echo $countrylist | grep $OPTARG) ]] && { echo "Couldn't find $OPTARG in country list."; exit 1; }
+				if [[ $exclude =~ (^|\|)$OPTARG ]] ; then
+					echo "Country tag $OPTARG already excluded."
+					exit 1
+				else
+					sed --regexp-extended 's/^exclude="([a-z]{2})/exclude="'$OPTARG'|\1/' -i $0 && exit 0 || { echo "Couldn't execute sed on $0"; exit 1; }
+					echo $?
+					echo "Ok."
+					exit 0
+				fi
+				echo "failed"
 				exit 0
 				;;
 			h) # Display help
@@ -62,7 +78,7 @@ check_args() {
 main() {
 	# If requiring flags is needed later
 	# [[ $# -eq 0 ]] && usage
-	check_args $1
+	check_args $@
 	check_executable
 	check_relay
 
@@ -94,4 +110,4 @@ main() {
 	exit 1
 }
 
-main "$@"
+main "${*}"
