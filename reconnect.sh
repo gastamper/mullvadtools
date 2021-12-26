@@ -42,7 +42,7 @@ check_args() {
 			\?)
 				echo "Invalid option: -$OPTARG" >&2
 				exit 1;;
-			r) # Randomize relay list
+			r) # Do not randomize relay list
 				export -n random=1;;
 			x) # Do not exclude previously used relays
 				exclude=1;;
@@ -78,7 +78,8 @@ main() {
 	for item in $relaylist; do
 		if [[ $(cat $usedlist) =~ (^|[[:space:]])$item($|[[:space:]]) ]]; then	
 			echo "Already used $item"
-		elif [[ $(echo $exclude | grep ${item::2}) ]]; then
+		elif [[ ( $excluded -ne 1 ) && 
+			( $(echo $exclude | grep ${item::2}) ) ]]; then
 			echo "Excluded $item based on country"
 			continue
 		else
