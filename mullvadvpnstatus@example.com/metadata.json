@@ -1,0 +1,9 @@
+{
+  "name": "Mullvad VPN Status",
+  "version": "1.0",
+  "description": "Show status of Mullvad VPN",
+  "uuid": "mullvadvpnstatus@example.com",
+  "shell-version": [
+    "3.36"
+  ]
+}
