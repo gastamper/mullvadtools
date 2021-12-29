@@ -13,7 +13,7 @@ const Me = ExtensionUtils.getCurrentExtension();
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 
-const Lang = imports.lang;
+// const Lang = imports.lang;
 
 const _httpSession = new Soup.SessionSync();
 // const _httpSession = new Soup.SessionAsync();
@@ -26,50 +26,49 @@ _httpSession.timeout = 2;
 var menu;
 var septxt = "";
 var match = "";
+var thisObj;
 
-const Indicator = new Lang.Class({
-	Name: "Indicator",
-	Extends: PanelMenu.Button,
-
-	_init: function() {
-		this.parent(0.0);
+const Indicator = GObject.registerClass(
+class Indicator extends PanelMenu.Button {
+	_init () {
+		super._init(0);
 		let gicon = Gio.icon_new_for_string(`${Me.path}/mullvad.svg`)
 		let icon = new St.Icon({ gicon, icon_size: 16 });
 		this.add_child(icon);
 
 		// Perform initial query so that menu can be populated on init, then build menu
-		this.getCurrentRelay();
+		thisObj = this;
+		this.getCurrentRelay(this);
 		this._addentries();
-		this._buildmenu();
+		this._updateRelay();
 		this.getRelayList();
-	},
+	}
 
-	_buildmenu: function() {
-		this.sep.destroy();
-		this.menuItem.destroy();
-		this._addentries();
-	},
+	_updateRelay () {
+		this.subsep.set_text(septxt);
+	}
 
-	_addentries: function() {
+	_addentries () {
 		let txt;
 		if ( ! septxt || septxt == "") { 
 			txt = "Waiting on update";
 		}
 		else { txt = `Current relay: ${septxt}`}
 		log(`Changing VPN relay text to ${septxt}`);
-		this.sep = new PopupMenu.PopupSeparatorMenuItem(txt);
+		this.sep = new PopupMenu.PopupSeparatorMenuItem("Current relay: ");
+		this.subsep = new St.Label({ text : 'Waiting on update'});
+		this.sep.add_child(this.subsep);
 		this.menuItem = new PopupMenu.PopupMenuItem('Get new relay');
-		this.menuItem.actor.connect('button_press_event', Lang.bind(this, this.connectNewRelay));
+		this.menuItem.actor.connect('button_press_event', this.connectNewRelay);
     	this.menu.addMenuItem(this.menuItem);
     	this.menu.addMenuItem(this.sep);
-	},
+	}
 
-	updateUI: function() {
-//		Main.notify("Updating Mullvad VPN status");
+	updateUI () {
 		this.getCurrentRelay();
-	},
+	}
 
-	getCurrentRelay: function() {
+	getCurrentRelay (thisObj) {
 		let request = new Soup.Message({
 			method: "GET",
 			uri: Soup.URI.new('https://am.i.mullvad.net/json'),
@@ -77,9 +76,9 @@ const Indicator = new Lang.Class({
 		request.request_headers.append('User-Agent', 'curl/1.0');
 		request.request_headers.append('Accept', '*/*');
 		_httpSession.queue_message(request, this._parseit);
-	},
+	}
 
-	getRandomRelay: function() {
+	getRandomRelay () {
 		if ( match.length != 0 ) { 
 			return match[Math.floor(Math.random() * match.length)];
 		} else {
@@ -87,9 +86,9 @@ const Indicator = new Lang.Class({
 			septxt = "Error";
 			return "Empty";
 		}
-	},
+	}
 
-	getRelayList: function() {
+	getRelayList () {
 		let loop = GLib.MainLoop.new(null, false);
 		try {
 			let proc = Gio.Subprocess.new(['mullvad','relay','list'], Gio.SubprocessFlags.STDOUT_PIPE);
@@ -114,16 +113,16 @@ const Indicator = new Lang.Class({
 		} catch (e) {
 			logError(e);
 		}
-	},
+	}
 
-	connectNewRelay: function() {
+	connectNewRelay () {
 		if ( match == "" || match == "Empty") {
 			return;
 		}
-		this._buildmenu();
+		thisObj._updateRelay();
 		let loop = GLib.MainLoop.new(null, false);
 		try {
-			let proc = Gio.Subprocess.new(['mullvad','relay','set', 'hostname', this.getRandomRelay()], 
+			let proc = Gio.Subprocess.new(['mullvad','relay','set', 'hostname', thisObj.getRandomRelay()], 
 				Gio.SubprocessFlags.STDOUT_PIPE);
 
 			proc.communicate_utf8_async(null, null, (proc, res) => {
@@ -132,7 +131,7 @@ const Indicator = new Lang.Class({
 
 					if (proc.get_successful()) {
 						Main.notify(`Switched from ${septxt} to ${stdout.match(/\w{2}\d{2,3}-wireguard/g)}`);
-						this.updateUI();
+						thisObj.updateUI();
 					} else {
 						throw new Error("Failed to set new relay");
 					}
@@ -146,9 +145,9 @@ const Indicator = new Lang.Class({
 		} catch (e) {
 			logError(e);
 		}
-	},
+	}
 
-	_parseit: function (session, message) {
+	_parseit (session, message) {
 			if (message.status_code !== 200) {
 				log("Got error when querying Mullvad VPN relay");
 				septxt = "Couldn't query Mullvad VPN relay";
@@ -164,7 +163,7 @@ const Indicator = new Lang.Class({
 				septxt = response.mullvad_exit_ip_hostname;
 				log(`Response: ${response.mullvad_exit_ip_hostname}`);
 			}
-			menu._buildmenu();
+			thisObj._updateRelay();
 			return response;
 		}
 });
