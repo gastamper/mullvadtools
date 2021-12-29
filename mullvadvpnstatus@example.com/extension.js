@@ -25,6 +25,7 @@ _httpSession.timeout = 2;
 
 var menu;
 var septxt = "";
+var match = "";
 
 const Indicator = new Lang.Class({
 	Name: "Indicator",
@@ -37,33 +38,35 @@ const Indicator = new Lang.Class({
 		this.add_child(icon);
 
 		// Perform initial query so that menu can be populated on init, then build menu
-		this.getrelay();
+		this.getCurrentRelay();
 		this._addentries();
 		this._buildmenu();
+		this.getRelayList();
 	},
 
 	_buildmenu: function() {
 		this.sep.destroy();
 		this.menuItem.destroy();
 		this._addentries();
+		log(this.getRandomRelay());
 	},
 
 	_addentries: function() {
 		if ( ! septxt ) { septxt = "Waiting on update"}
-		log("Changing VPN relay text to " + septxt);
+		log(`Changing VPN relay text to ${septxt}`);
 		this.sep = new PopupMenu.PopupSeparatorMenuItem(septxt);
 		this.menuItem = new PopupMenu.PopupMenuItem('Get new relay');
-		this.menuItem.actor.connect('button_press_event', Lang.bind(this, this.updateUI));
+		this.menuItem.actor.connect('button_press_event', Lang.bind(this, this.connectNewRelay));
     	this.menu.addMenuItem(this.menuItem);
     	this.menu.addMenuItem(this.sep);
 	},
 
 	updateUI: function() {
 		Main.notify("Updating Mullvad VPN status");
-		this.getrelay();
+		this.getCurrentRelay();
 	},
 
-	getrelay: function() {
+	getCurrentRelay: function() {
 		let request = new Soup.Message({
 			method: "GET",
 			uri: Soup.URI.new('https://am.i.mullvad.net/json'),
@@ -71,6 +74,71 @@ const Indicator = new Lang.Class({
 		request.request_headers.append('User-Agent', 'curl/1.0');
 		request.request_headers.append('Accept', '*/*');
 		_httpSession.queue_message(request, this._parseit);
+	},
+
+	getRandomRelay: function() {
+		if ( match.length != 0 ) { 
+			return match[Math.floor(Math.random() * match.length)];
+		} else {
+			return "Empty";
+		}
+	},
+
+	getRelayList: function() {
+		let loop = GLib.MainLoop.new(null, false);
+		try {
+			let proc = Gio.Subprocess.new(['mullvad','relay','list'], Gio.SubprocessFlags.STDOUT_PIPE);
+
+			proc.communicate_utf8_async(null, null, (proc, res) => {
+				try {
+					let [, stdout] = proc.communicate_utf8_finish(res);
+
+					if (proc.get_successful()) {
+						match = stdout.match(/\w{2}\d{2,3}-wireguard/g);
+					} else {
+						match = "Error";
+						throw new Error("Failed to get relay list");
+					}
+				} catch (e) {
+					logError(e)
+				} finally {
+					loop.quit();
+				}
+
+			});
+		} catch (e) {
+			logError(e);
+		}
+	},
+
+	connectNewRelay: function() {
+		if ( match == "" || match == "Empty") {
+			return;
+		}
+		let loop = GLib.MainLoop.new(null, false);
+		try {
+			let proc = Gio.Subprocess.new(['mullvad','relay','set', 'hostname', this.getRandomRelay()], 
+				Gio.SubprocessFlags.STDOUT_PIPE);
+
+			proc.communicate_utf8_async(null, null, (proc, res) => {
+				try {
+					let [, stdout] = proc.communicate_utf8_finish(res);
+
+					if (proc.get_successful()) {
+						this.updateUI();
+					} else {
+						throw new Error("Failed to set new relay");
+					}
+				} catch (e) {
+					logError(e)
+				} finally {
+					loop.quit();
+				}
+
+			});
+		} catch (e) {
+			logError(e);
+		}
 	},
 
 	_parseit: function (session, message) {
@@ -87,12 +155,11 @@ const Indicator = new Lang.Class({
 			}
 			else {
 				septxt = response.mullvad_exit_ip_hostname;
-				log("Response: " + response.mullvad_exit_ip_hostname);
+				log(`Response: ${response.mullvad_exit_ip_hostname}`);
 			}
 			menu._buildmenu();
 			return response;
 		}
-
 });
 
 function init() {
