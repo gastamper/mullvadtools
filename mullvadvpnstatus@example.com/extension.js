@@ -13,8 +13,6 @@ const Me = ExtensionUtils.getCurrentExtension();
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 
-// const Lang = imports.lang;
-
 const _httpSession = new Soup.SessionSync();
 // const _httpSession = new Soup.SessionAsync();
 Soup.Session.prototype.add_feature.call(
