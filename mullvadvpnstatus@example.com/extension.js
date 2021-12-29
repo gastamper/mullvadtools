@@ -48,13 +48,16 @@ const Indicator = new Lang.Class({
 		this.sep.destroy();
 		this.menuItem.destroy();
 		this._addentries();
-		log(this.getRandomRelay());
 	},
 
 	_addentries: function() {
-		if ( ! septxt ) { septxt = "Waiting on update"}
+		let txt;
+		if ( ! septxt || septxt == "") { 
+			txt = "Waiting on update";
+		}
+		else { txt = `Current relay: ${septxt}`}
 		log(`Changing VPN relay text to ${septxt}`);
-		this.sep = new PopupMenu.PopupSeparatorMenuItem(septxt);
+		this.sep = new PopupMenu.PopupSeparatorMenuItem(txt);
 		this.menuItem = new PopupMenu.PopupMenuItem('Get new relay');
 		this.menuItem.actor.connect('button_press_event', Lang.bind(this, this.connectNewRelay));
     	this.menu.addMenuItem(this.menuItem);
@@ -62,7 +65,7 @@ const Indicator = new Lang.Class({
 	},
 
 	updateUI: function() {
-		Main.notify("Updating Mullvad VPN status");
+//		Main.notify("Updating Mullvad VPN status");
 		this.getCurrentRelay();
 	},
 
@@ -80,6 +83,8 @@ const Indicator = new Lang.Class({
 		if ( match.length != 0 ) { 
 			return match[Math.floor(Math.random() * match.length)];
 		} else {
+			Main.notify("Error: Mullvad relay list was empty.");
+			septxt = "Error";
 			return "Empty";
 		}
 	},
@@ -115,6 +120,7 @@ const Indicator = new Lang.Class({
 		if ( match == "" || match == "Empty") {
 			return;
 		}
+		this._buildmenu();
 		let loop = GLib.MainLoop.new(null, false);
 		try {
 			let proc = Gio.Subprocess.new(['mullvad','relay','set', 'hostname', this.getRandomRelay()], 
@@ -125,6 +131,7 @@ const Indicator = new Lang.Class({
 					let [, stdout] = proc.communicate_utf8_finish(res);
 
 					if (proc.get_successful()) {
+						Main.notify(`Switched from ${septxt} to ${stdout.match(/\w{2}\d{2,3}-wireguard/g)}`);
 						this.updateUI();
 					} else {
 						throw new Error("Failed to set new relay");
